@@ -1,6 +1,17 @@
 ﻿open System.Net.Http
 open System
-type RequestBuilder (method:HttpMethod,url:string,content:(unit->HttpContent) option)=
+
+type Content=unit->HttpContent
+
+type RequestOperation<'ctx,'req>=
+|Operation of ('ctx->'req->'req)
+|Pure of 'req
+
+let mapI f=function
+|Operation next->Operation(next>>f)
+
+
+type RequestBuilder (method:HttpMethod,url:string,content:Content option)=
       member this.Delay(f)=f()
 
       [<CustomOperation("header")>]
@@ -18,12 +29,16 @@ type RequestBuilder (method:HttpMethod,url:string,content:(unit->HttpContent) op
                               r
 
 
+
 let create method url content=RequestBuilder(method,url,content)
 
 let Get url=create HttpMethod.Get url None
 let Post url f =create HttpMethod.Post url (Some f)
 let Put url=create HttpMethod.Put url
 let Delete url=create HttpMethod.Delete url None
+let Options url content=create HttpMethod.Options url content
+
+
 
        
 [<EntryPoint>]
