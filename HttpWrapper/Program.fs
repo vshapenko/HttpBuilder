@@ -1,6 +1,7 @@
 ﻿open System.Net.Http
 open System
 open System.Web
+open System.Collections.Specialized
 
 type RequestParameter=
     |Header of (unit->string*string)
@@ -17,13 +18,9 @@ let setHeader (request:HttpRequestMessage) (header:unit->string*string)=
 let setContent (request:HttpRequestMessage) (content:unit->HttpContent)=
   request.Content<-content()
 
-let setQueryParam (request:HttpRequestMessage) (query:unit->string*string)=
-  let builder=new UriBuilder(request.RequestUri)
-  let queryCol=HttpUtility.ParseQueryString(builder.Query)
+let setQueryParam (col:NameValueCollection) (query:unit->string*string)=
   let k,v=query()
-  queryCol.[k]<-v
-  builder.Query<-queryCol.ToString()
-  request.RequestUri<-builder.Uri
+  col.[k]<-v
 
 
 
@@ -45,12 +42,17 @@ type RequestBuilder()=
 
 let create method (url:string) builder=
    let message= new HttpRequestMessage(method,url)
+   let requestBuilder=new UriBuilder(message.RequestUri)
+   let col=HttpUtility.ParseQueryString(requestBuilder.Query)
    match builder with
-   |RequestParameters l->l|>List.fold(fun acc x->match x with
+    |RequestParameters l->l|>List.fold(fun acc x->match x with
                                                   |Header f->setHeader acc f
                                                   |Content c->setContent acc c
-                                                  |Query q->setQueryParam acc q
-                                                 acc) message
+                                                  |Query q->setQueryParam col q
+                                                  acc) message |>ignore
+   requestBuilder.Query<-col.ToString()
+   message.RequestUri<-requestBuilder.Uri
+   message
    
 
 let http=RequestBuilder()
